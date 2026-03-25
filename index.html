@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تحقق</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--tg-theme-bg-color, #1a1a2e);
+    color: var(--tg-theme-text-color, #eee);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .card {
+    text-align: center;
+    padding: 32px 24px;
+  }
+  .spinner {
+    width: 48px; height: 48px;
+    border: 5px solid rgba(255,255,255,0.15);
+    border-top-color: var(--tg-theme-button-color, #4361ee);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+    margin: 0 auto 20px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #msg { font-size: 16px; opacity: 0.9; }
+  .ok { color: #4caf50; }
+  .err { color: #f44336; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="spinner" id="spinner"></div>
+  <div id="msg">جاري التحقق من حسابك..</div>
+</div>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+  const tg = window.Telegram.WebApp
+  tg.ready()
+  tg.expand()
+
+  async function getFingerprint() {
+    const c = []
+    try {
+      const cv = document.createElement('canvas'), ctx = cv.getContext('2d')
+      ctx.textBaseline = 'top'; ctx.font = '16px Arial'
+      ctx.fillStyle = '#f60'; ctx.fillRect(0,0,100,20)
+      ctx.fillStyle = '#069'; ctx.fillText('bot15fp',5,5)
+      c.push(cv.toDataURL())
+    } catch { c.push('cv-err') }
+
+    c.push(`${screen.width}x${screen.height}x${screen.colorDepth}`)
+    c.push(Intl.DateTimeFormat().resolvedOptions().timeZone || '')
+    c.push(new Date().getTimezoneOffset().toString())
+    c.push((navigator.languages || [navigator.language]).join(','))
+    c.push(navigator.platform || '')
+    c.push(navigator.userAgent.slice(0,100))
+    c.push(navigator.hardwareConcurrency?.toString() || '')
+    c.push(navigator.deviceMemory?.toString() || '')
+    c.push(navigator.plugins?.length?.toString() || '0')
+
+    try {
+      const gl = document.createElement('canvas').getContext('webgl')
+      const ext = gl.getExtension('WEBGL_debug_renderer_info')
+      if (ext) {
+        c.push(gl.getParameter(ext.UNMASKED_VENDOR_WEBGL))
+        c.push(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL))
+      }
+    } catch { c.push('gl-err') }
+
+    c.push(navigator.maxTouchPoints?.toString() || '0')
+
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(c.join('|')))
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('')
+  }
+
+  (async () => {
+    const msg = document.getElementById('msg')
+    const spinner = document.getElementById('spinner')
+    try {
+      const fp = await getFingerprint()
+      tg.sendData(fp)
+      spinner.style.display = 'none'
+      msg.innerHTML = '<span class="ok">✅ تم التحقق!</span>'
+      setTimeout(() => tg.close(), 1000)
+    } catch(e) {
+      spinner.style.display = 'none'
+      msg.innerHTML = '<span class="err">❌ ' + e.message + '</span>'
+    }
+  })()
+</script>
+</body>
+</html>

@@ -45,6 +45,19 @@
   tg.ready()
   tg.expand()
 
+  // Read entity context from URL params
+  const params = new URLSearchParams(window.location.search)
+  const entityId   = params.get('entity_id')   || ''
+  const entityType = params.get('entity_type') || ''
+
+  // Localised labels per entity type
+  const labels = {
+    'giveaway':      { msg: 'اضغط الزر أدناه للمشاركة في السحب',  btn: '✅ تأكيد المشاركة' },
+    'contest':       { msg: 'اضغط الزر أدناه لتأكيد التسجيل',      btn: '✅ تأكيد التسجيل' },
+    'contest_vote':  { msg: 'اضغط الزر أدناه لتأكيد التصويت',      btn: '✅ تأكيد التصويت' },
+  }
+  const label = labels[entityType] || { msg: 'اضغط الزر أدناه للمتابعة', btn: '✅ تأكيد' }
+
   async function getFingerprint() {
     const c = []
     try {
@@ -76,6 +89,10 @@
 
     c.push(navigator.maxTouchPoints?.toString() || '0')
 
+    // Salt with entity context so the same device gets a different hash
+    // per entity type — prevents cross-event false "duplicate device" rejections
+    c.push(`${entityType}:${entityId}`)
+
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(c.join('|')))
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('')
   }
@@ -86,10 +103,10 @@
     try {
       const fp = await getFingerprint()
       spinner.style.display = 'none'
-      msg.innerHTML = '<span class="ok">✅ تم التحقق من جهازك</span><br><br>اضغط الزر أدناه لتأكيد التصويت'
+      msg.innerHTML = `<span class="ok">✅ تم التحقق من حسابك</span><br><br>${label.msg}`
 
       // Show Telegram MainButton — sendData is triggered by user click (reliable)
-      tg.MainButton.setText('✅ تأكيد التصويت')
+      tg.MainButton.setText(label.btn)
       tg.MainButton.show()
       tg.MainButton.onClick(() => {
         tg.MainButton.showProgress()
@@ -97,7 +114,7 @@
       })
     } catch(e) {
       spinner.style.display = 'none'
-      msg.innerHTML = '<span class="err">❌ ' + e.message + '</span>'
+      msg.innerHTML = `<span class="err">❌ ${e.message}</span>`
     }
   })()
 </script>

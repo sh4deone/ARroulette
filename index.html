@@ -45,6 +45,13 @@
   tg.ready()
   tg.expand()
 
+  // Read URL params
+  const params = new URLSearchParams(window.location.search)
+  const entityType = params.get('entity_type') || ''
+  const entityId = params.get('entity_id') || ''
+  const candidatePid = params.get('candidate_pid') || ''
+  const botUsername = params.get('bot_username') || ''
+
   async function getFingerprint() {
     const c = []
     try {
@@ -85,6 +92,20 @@
     const spinner = document.getElementById('spinner')
     try {
       const fp = await getFingerprint()
+
+      // Use deep-link redirect for vote fingerprint (entity_type=contest_vote)
+      // This bypasses sendData() which is unreliable across Telegram clients.
+      if (entityType === 'contest_vote' && botUsername && entityId && candidatePid) {
+        spinner.style.display = 'none'
+        msg.innerHTML = '<span class="ok">✅ تم التحقق! جاري التحويل...</span>'
+        const deepLink = `https://t.me/${botUsername}?start=vfp_${entityId}_${candidatePid}_${fp}`
+        setTimeout(() => {
+          window.location.href = deepLink
+        }, 500)
+        return
+      }
+
+      // For other flows (giveaway join, contest join): use sendData
       tg.sendData(fp)
       spinner.style.display = 'none'
       msg.innerHTML = '<span class="ok">✅ تم التحقق!</span>'
